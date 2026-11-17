@@ -145,17 +145,9 @@ class _AzkarDetailScreenState extends ConsumerState<AzkarDetailScreen> {
                             ),
                             const SizedBox(height: 16),
 
-                            // Authentic Arabic text
-                            Text(
-                              currentItem.text,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                height: 1.8,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
+                            // Authentic Arabic text with elegant separation for Isti'adhah & Basmala
+                            _buildDhikrBody(currentItem.text),
+
                             const SizedBox(height: 14),
 
                             // Source / Virtue
@@ -254,6 +246,85 @@ class _AzkarDetailScreenState extends ConsumerState<AzkarDetailScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('خطأ: $err')),
       ),
+    );
+  }
+
+  Widget _buildDhikrBody(String rawText) {
+    final parts = rawText
+        .split('\n\n')
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+
+    if (parts.length <= 1) {
+      return Text(
+        rawText,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          height: 1.85,
+          color: AppColors.textPrimary,
+        ),
+      );
+    }
+
+    return Column(
+      children: parts.map((part) {
+        final isIstiadha = part.contains('أَعُوذُ بِاللهِ مِنَ الشَّيْطَانِ الرَّجِيمِ');
+        final isBasmala = part.contains('بِسْمِ اللهِ الرَّحْمَٰنِ الرَّحِيمِ');
+
+        if (isIstiadha) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+            ),
+            child: Text(
+              part,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primaryDark,
+              ),
+            ),
+          );
+        }
+
+        if (isBasmala) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            child: Text(
+              part,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primaryDark,
+              ),
+            ),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text(
+            part,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              height: 1.85,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 

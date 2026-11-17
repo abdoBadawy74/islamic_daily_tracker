@@ -135,8 +135,12 @@ class DatabaseHelper {
     final count = Sqflite.firstIntValue(
       await db.rawQuery('SELECT COUNT(*) FROM azkar_items'),
     ) ?? 0;
-    // If the database has fewer than 50 items, re-seed with all authentic azkar
-    if (count < 50) {
+    // Check if azkar contain old glued text
+    final oldTextSample = await db.rawQuery(
+      "SELECT text FROM azkar_items WHERE text LIKE '%الرَّجِيمِاللّهُ%' OR text LIKE '%الرَّحِيمقُلْ%' LIMIT 1",
+    );
+    // If the database has fewer than 50 items or contains old unspaced text, re-seed with all authentic azkar
+    if (count < 50 || oldTextSample.isNotEmpty) {
       await _reseedAzkar(db);
     }
   }

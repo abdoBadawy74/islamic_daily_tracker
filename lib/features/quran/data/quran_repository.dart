@@ -75,6 +75,14 @@ class SurahFullModel {
     required this.revelationType,
     required this.ayahs,
   });
+
+  Map<int, List<AyahModel>> get ayahsByPage {
+    final Map<int, List<AyahModel>> pages = {};
+    for (final ayah in ayahs) {
+      pages.putIfAbsent(ayah.page, () => []).add(ayah);
+    }
+    return pages;
+  }
 }
 
 class QuranRepository {
