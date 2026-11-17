@@ -1,0 +1,316 @@
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
+import 'package:islamic_daily_tracker/core/constants/app_constants.dart';
+import 'package:uuid/uuid.dart';
+
+class DatabaseHelper {
+  static final DatabaseHelper _instance = DatabaseHelper._internal();
+  factory DatabaseHelper() => _instance;
+  DatabaseHelper._internal();
+
+  static Database? _database;
+  final _uuid = const Uuid();
+
+  Future<Database> get database async {
+    _database ??= await _initDatabase();
+    return _database!;
+  }
+
+  Future<Database> _initDatabase() async {
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, AppConstants.dbName);
+    return await openDatabase(
+      path,
+      version: AppConstants.dbVersion,
+      onCreate: _onCreate,
+    );
+  }
+
+  Future<void> _onCreate(Database db, int version) async {
+    await db.execute('''
+      CREATE TABLE prayers (
+        id TEXT PRIMARY KEY,
+        prayer_name TEXT NOT NULL,
+        state TEXT NOT NULL,
+        date TEXT NOT NULL,
+        UNIQUE(prayer_name, date)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE worships (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'general',
+        icon_name TEXT DEFAULT 'default',
+        target INTEGER,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        is_ramadan_only INTEGER NOT NULL DEFAULT 0,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE daily_records (
+        id TEXT PRIMARY KEY,
+        worship_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        is_completed INTEGER NOT NULL DEFAULT 0,
+        current_value INTEGER NOT NULL DEFAULT 0,
+        target_value INTEGER NOT NULL DEFAULT 1,
+        notes TEXT,
+        UNIQUE(worship_id, date)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE quran_progress (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL UNIQUE,
+        surah_number INTEGER,
+        ayah_number INTEGER,
+        pages_read INTEGER NOT NULL DEFAULT 0,
+        daily_target INTEGER NOT NULL DEFAULT 20,
+        last_surah_name TEXT,
+        notes TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE azkar_categories (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        icon_name TEXT DEFAULT 'default'
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE azkar_items (
+        id TEXT PRIMARY KEY,
+        category_id TEXT NOT NULL,
+        text TEXT NOT NULL,
+        repetitions INTEGER NOT NULL DEFAULT 1,
+        current_count INTEGER NOT NULL DEFAULT 0,
+        source TEXT,
+        virtue TEXT,
+        FOREIGN KEY (category_id) REFERENCES azkar_categories(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE azkar_progress (
+        id TEXT PRIMARY KEY,
+        azkar_item_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        completed_count INTEGER NOT NULL DEFAULT 0,
+        target_count INTEGER NOT NULL DEFAULT 1,
+        UNIQUE(azkar_item_id, date)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    ''');
+
+    // Seed default data
+    await _seedWorships(db);
+    await _seedAzkar(db);
+  }
+
+  Future<void> _seedWorships(Database db) async {
+    final now = DateTime.now().toIso8601String();
+    for (int i = 0; i < AppConstants.defaultWorships.length; i++) {
+      final w = AppConstants.defaultWorships[i];
+      await db.insert('worships', {
+        'id': _uuid.v4(),
+        'name': w['name'],
+        'type': w['type'],
+        'category': w['category'],
+        'icon_name': w['icon'] ?? 'default',
+        'target': w['target'],
+        'is_active': 1,
+        'is_ramadan_only': 0,
+        'sort_order': i,
+        'created_at': now,
+      });
+    }
+    for (int i = 0; i < AppConstants.ramadanWorships.length; i++) {
+      final w = AppConstants.ramadanWorships[i];
+      await db.insert('worships', {
+        'id': _uuid.v4(),
+        'name': w['name'],
+        'type': w['type'],
+        'category': w['category'],
+        'icon_name': w['icon'] ?? 'default',
+        'target': w['target'],
+        'is_active': 1,
+        'is_ramadan_only': 1,
+        'sort_order': AppConstants.defaultWorships.length + i,
+        'created_at': now,
+      });
+    }
+  }
+
+  Future<void> _seedAzkar(Database db) async {
+    // Morning Azkar
+    final morningId = _uuid.v4();
+    await db.insert('azkar_categories', {'id': morningId, 'name': 'أذكار الصباح', 'icon_name': 'sunrise'});
+
+    final eveningId = _uuid.v4();
+    await db.insert('azkar_categories', {'id': eveningId, 'name': 'أذكار المساء', 'icon_name': 'sunset'});
+
+    final sleepId = _uuid.v4();
+    await db.insert('azkar_categories', {'id': sleepId, 'name': 'أذكار النوم', 'icon_name': 'sleep'});
+
+    final wakeupId = _uuid.v4();
+    await db.insert('azkar_categories', {'id': wakeupId, 'name': 'أذكار الاستيقاظ', 'icon_name': 'wakeup'});
+
+    final prayerId = _uuid.v4();
+    await db.insert('azkar_categories', {'id': prayerId, 'name': 'أذكار بعد الصلاة', 'icon_name': 'prayer'});
+
+    final miscId = _uuid.v4();
+    await db.insert('azkar_categories', {'id': miscId, 'name': 'أذكار متنوعة', 'icon_name': 'misc'});
+
+    // Morning Azkar items
+    final morningAzkar = [
+      {'text': 'أَصْبَحْنَا وَأَصْبَحَ الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ، لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ', 'rep': 1, 'source': 'مسلم'},
+      {'text': 'اللَّهُمَّ بِكَ أَصْبَحْنَا، وَبِكَ أَمْسَيْنَا، وَبِكَ نَحْيَا، وَبِكَ نَمُوتُ، وَإِلَيْكَ النُّشُورُ', 'rep': 1, 'source': 'الترمذي'},
+      {'text': 'اللَّهُمَّ إِنِّي أَسْأَلُكَ خَيْرَ هَذَا الْيَوْمِ فَتْحَهُ وَنَصْرَهُ وَنُورَهُ وَبَرَكَتَهُ وَهُدَاهُ', 'rep': 1, 'source': 'أبو داود'},
+      {'text': 'اللَّهُمَّ عَافِنِي فِي بَدَنِي، اللَّهُمَّ عَافِنِي فِي سَمْعِي، اللَّهُمَّ عَافِنِي فِي بَصَرِي، لَا إِلَهَ إِلَّا أَنْتَ', 'rep': 3, 'source': 'أبو داود'},
+      {'text': 'بِسْمِ اللَّهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْأَرْضِ وَلَا فِي السَّمَاءِ وَهُوَ السَّمِيعُ الْعَلِيمُ', 'rep': 3, 'source': 'أبو داود والترمذي'},
+      {'text': 'أَعُوذُ بِكَلِمَاتِ اللَّهِ التَّامَّاتِ مِنْ شَرِّ مَا خَلَقَ', 'rep': 3, 'source': 'مسلم'},
+      {'text': 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ', 'rep': 100, 'source': 'مسلم', 'virtue': 'من قالها مائة مرة حين يصبح وحين يمسي لم يأت أحد يوم القيامة بأفضل مما جاء به'},
+      {'text': 'لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ', 'rep': 10, 'source': 'متفق عليه'},
+      {'text': 'أَسْتَغْفِرُ اللَّهَ وَأَتُوبُ إِلَيْهِ', 'rep': 100, 'source': 'البخاري ومسلم'},
+    ];
+
+    for (final a in morningAzkar) {
+      await db.insert('azkar_items', {
+        'id': _uuid.v4(),
+        'category_id': morningId,
+        'text': a['text'],
+        'repetitions': a['rep'],
+        'current_count': 0,
+        'source': a['source'],
+        'virtue': a['virtue'],
+      });
+    }
+
+    // Evening Azkar
+    final eveningAzkar = [
+      {'text': 'أَمْسَيْنَا وَأَمْسَى الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ، لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ', 'rep': 1, 'source': 'مسلم'},
+      {'text': 'اللَّهُمَّ بِكَ أَمْسَيْنَا، وَبِكَ أَصْبَحْنَا، وَبِكَ نَحْيَا، وَبِكَ نَمُوتُ، وَإِلَيْكَ الْمَصِيرُ', 'rep': 1, 'source': 'الترمذي'},
+      {'text': 'اللَّهُمَّ إِنِّي أَسْأَلُكَ خَيْرَ هَذِهِ اللَّيْلَةِ فَتْحَهَا وَنَصْرَهَا وَنُورَهَا وَبَرَكَتَهَا وَهُدَاهَا', 'rep': 1, 'source': 'أبو داود'},
+      {'text': 'أَعُوذُ بِكَلِمَاتِ اللَّهِ التَّامَّاتِ مِنْ شَرِّ مَا خَلَقَ', 'rep': 3, 'source': 'مسلم'},
+      {'text': 'بِسْمِ اللَّهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْأَرْضِ وَلَا فِي السَّمَاءِ وَهُوَ السَّمِيعُ الْعَلِيمُ', 'rep': 3, 'source': 'أبو داود والترمذي'},
+      {'text': 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ', 'rep': 100, 'source': 'مسلم'},
+      {'text': 'لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ', 'rep': 10, 'source': 'متفق عليه'},
+    ];
+
+    for (final a in eveningAzkar) {
+      await db.insert('azkar_items', {
+        'id': _uuid.v4(),
+        'category_id': eveningId,
+        'text': a['text'],
+        'repetitions': a['rep'],
+        'current_count': 0,
+        'source': a['source'],
+        'virtue': a['virtue'],
+      });
+    }
+
+    // Sleep Azkar
+    final sleepAzkar = [
+      {'text': 'بِاسْمِكَ اللَّهُمَّ أَمُوتُ وَأَحْيَا', 'rep': 1, 'source': 'البخاري'},
+      {'text': 'اللَّهُمَّ إِنَّكَ خَلَقْتَ نَفْسِي وَأَنْتَ تَوَفَّاهَا، لَكَ مَمَاتُهَا وَمَحْيَاهَا، إِنْ أَحْيَيْتَهَا فَاحْفَظْهَا، وَإِنْ أَمَتَّهَا فَاغْفِرْ لَهَا، اللَّهُمَّ إِنِّي أَسْأَلُكَ الْعَافِيَةَ', 'rep': 1, 'source': 'مسلم'},
+      {'text': 'اللَّهُمَّ قِنِي عَذَابَكَ يَوْمَ تَبْعَثُ عِبَادَكَ', 'rep': 3, 'source': 'أبو داود والترمذي'},
+      {'text': 'سُبْحَانَ اللَّهِ', 'rep': 33, 'source': 'متفق عليه'},
+      {'text': 'الْحَمْدُ لِلَّهِ', 'rep': 33, 'source': 'متفق عليه'},
+      {'text': 'اللَّهُ أَكْبَرُ', 'rep': 34, 'source': 'متفق عليه'},
+    ];
+
+    for (final a in sleepAzkar) {
+      await db.insert('azkar_items', {
+        'id': _uuid.v4(),
+        'category_id': sleepId,
+        'text': a['text'],
+        'repetitions': a['rep'],
+        'current_count': 0,
+        'source': a['source'],
+        'virtue': a['virtue'],
+      });
+    }
+
+    // Wakeup Azkar
+    final wakeupAzkar = [
+      {'text': 'الْحَمْدُ لِلَّهِ الَّذِي أَحْيَانَا بَعْدَ مَا أَمَاتَنَا وَإِلَيْهِ النُّشُورُ', 'rep': 1, 'source': 'البخاري'},
+      {'text': 'لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ، سُبْحَانَ اللَّهِ وَالْحَمْدُ لِلَّهِ وَلَا إِلَهَ إِلَّا اللَّهُ وَاللَّهُ أَكْبَرُ وَلَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ الْعَلِيِّ الْعَظِيمِ', 'rep': 1, 'source': 'البخاري'},
+    ];
+
+    for (final a in wakeupAzkar) {
+      await db.insert('azkar_items', {
+        'id': _uuid.v4(),
+        'category_id': wakeupId,
+        'text': a['text'],
+        'repetitions': a['rep'],
+        'current_count': 0,
+        'source': a['source'],
+        'virtue': a['virtue'],
+      });
+    }
+
+    // After Prayer Azkar
+    final afterPrayerAzkar = [
+      {'text': 'أَسْتَغْفِرُ اللَّهَ', 'rep': 3, 'source': 'مسلم'},
+      {'text': 'اللَّهُمَّ أَنْتَ السَّلَامُ وَمِنْكَ السَّلَامُ، تَبَارَكْتَ يَا ذَا الْجَلَالِ وَالْإِكْرَامِ', 'rep': 1, 'source': 'مسلم'},
+      {'text': 'لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ، اللَّهُمَّ لَا مَانِعَ لِمَا أَعْطَيْتَ وَلَا مُعْطِيَ لِمَا مَنَعْتَ وَلَا يَنْفَعُ ذَا الْجَدِّ مِنْكَ الْجَدُّ', 'rep': 1, 'source': 'متفق عليه'},
+      {'text': 'سُبْحَانَ اللَّهِ', 'rep': 33, 'source': 'مسلم'},
+      {'text': 'الْحَمْدُ لِلَّهِ', 'rep': 33, 'source': 'مسلم'},
+      {'text': 'اللَّهُ أَكْبَرُ', 'rep': 33, 'source': 'مسلم'},
+      {'text': 'لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ', 'rep': 1, 'source': 'مسلم', 'virtue': 'تمام المائة بعد التسبيح والتحميد والتكبير'},
+    ];
+
+    for (final a in afterPrayerAzkar) {
+      await db.insert('azkar_items', {
+        'id': _uuid.v4(),
+        'category_id': prayerId,
+        'text': a['text'],
+        'repetitions': a['rep'],
+        'current_count': 0,
+        'source': a['source'],
+        'virtue': a['virtue'],
+      });
+    }
+
+    // Misc Azkar
+    final miscAzkar = [
+      {'text': 'لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ', 'rep': 10, 'source': 'متفق عليه', 'virtue': 'كنز من كنوز الجنة'},
+      {'text': 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ، سُبْحَانَ اللَّهِ الْعَظِيمِ', 'rep': 10, 'source': 'متفق عليه', 'virtue': 'كلمتان خفيفتان على اللسان ثقيلتان في الميزان حبيبتان إلى الرحمن'},
+      {'text': 'اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى نَبِيِّنَا مُحَمَّدٍ', 'rep': 10, 'source': 'مسلم'},
+      {'text': 'رَبِّ اغْفِرْ لِي وَتُبْ عَلَيَّ إِنَّكَ أَنْتَ التَّوَّابُ الْغَفُورُ', 'rep': 100, 'source': 'أبو داود والترمذي'},
+    ];
+
+    for (final a in miscAzkar) {
+      await db.insert('azkar_items', {
+        'id': _uuid.v4(),
+        'category_id': miscId,
+        'text': a['text'],
+        'repetitions': a['rep'],
+        'current_count': 0,
+        'source': a['source'],
+        'virtue': a['virtue'],
+      });
+    }
+  }
+
+  Future<void> close() async {
+    final db = await database;
+    await db.close();
+    _database = null;
+  }
+}
