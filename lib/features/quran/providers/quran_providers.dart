@@ -4,7 +4,19 @@ import 'package:islamic_daily_tracker/core/utils/date_utils.dart';
 import 'package:islamic_daily_tracker/data/models/quran_progress.dart';
 import 'package:islamic_daily_tracker/features/home/providers/home_providers.dart';
 import 'package:islamic_daily_tracker/features/quran/data/surah_data.dart';
+import 'package:islamic_daily_tracker/features/quran/data/quran_repository.dart';
 import 'package:uuid/uuid.dart';
+
+// Quran Text Repository & Surah Detail Providers
+final quranTextRepositoryProvider = Provider<QuranRepository>((ref) {
+  return QuranRepository();
+});
+
+final surahDetailProvider =
+    FutureProvider.family.autoDispose<SurahFullModel, int>((ref, surahNumber) async {
+  final repo = ref.watch(quranTextRepositoryProvider);
+  return repo.getSurah(surahNumber);
+});
 
 // Search Query for Surahs
 final surahSearchQueryProvider = StateProvider<String>((ref) => '');

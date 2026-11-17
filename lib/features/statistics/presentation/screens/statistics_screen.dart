@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:islamic_daily_tracker/core/theme/app_colors.dart';
 import 'package:islamic_daily_tracker/features/statistics/presentation/screens/calendar_history_screen.dart';
+import 'package:islamic_daily_tracker/features/statistics/presentation/widgets/prayer_habit_grid.dart';
 import 'package:islamic_daily_tracker/features/statistics/presentation/widgets/prayer_stats_chart.dart';
+import 'package:islamic_daily_tracker/features/statistics/presentation/widgets/spiritual_journey_overview_card.dart';
 import 'package:islamic_daily_tracker/features/statistics/presentation/widgets/worship_stats_card.dart';
 import 'package:islamic_daily_tracker/features/statistics/providers/statistics_providers.dart';
 
@@ -24,7 +26,7 @@ class StatisticsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('الإحصائيات والتقارير'),
+        title: const Text('رحلتي الإيمانية والإحصائيات'),
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_today_outlined),
@@ -42,14 +44,50 @@ class StatisticsScreen extends ConsumerWidget {
         onRefresh: () async {
           ref.invalidate(prayerStatsProvider);
           ref.invalidate(overallWorshipStatsProvider);
+          ref.invalidate(last7DaysPrayerGridProvider);
+          ref.invalidate(spiritualJourneyOverviewProvider);
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Period Selector Row
+              // 1. Spiritual Journey Overview Card (matching Screenshot 2)
+              const SpiritualJourneyOverviewCard(),
+
+              // 2. 7-Day Prayer Habit Grid (matching Screenshot 2)
+              const PrayerHabitGrid(),
+
+              const SizedBox(height: 12),
+
+              // Period Selector Section Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'التحليل التفصيلي للعبادات',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      selectedPeriod == StatsPeriod.week
+                          ? 'آخر 7 أيام'
+                          : selectedPeriod == StatsPeriod.month
+                              ? 'آخر 30 يوم'
+                              : 'فترة مخصصة',
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Period Selector Row Chips
               Container(
                 height: 48,
                 padding: const EdgeInsets.symmetric(horizontal: 16),

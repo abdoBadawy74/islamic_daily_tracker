@@ -1,9 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:islamic_daily_tracker/data/datasources/local/authentic_azkar_data.dart';
 import 'package:islamic_daily_tracker/data/models/prayer_status.dart';
 import 'package:islamic_daily_tracker/data/models/daily_record.dart';
 import 'package:islamic_daily_tracker/data/models/worship_model.dart';
 import 'package:islamic_daily_tracker/data/models/quran_progress.dart';
 import 'package:islamic_daily_tracker/data/models/app_settings.dart';
+import 'package:islamic_daily_tracker/features/quran/data/quran_repository.dart';
 
 void main() {
   group('Prayer Logic and Statistics Tests', () {
@@ -31,11 +33,6 @@ void main() {
     });
 
     test('Prayer on-time percentage matches project specification exactly', () {
-      // Prompt specification example:
-      // onTime = 120, late = 15, missed = 5, notRecorded = 10
-      // Total recorded due = 120 + 15 + 5 = 140
-      // onTimePercentage = 120 / 140 * 100 = 85.714...%
-      // notRecorded must NOT be counted as missed or included in the denominator
       const onTimeCount = 120;
       const lateCount = 15;
       const missedCount = 5;
@@ -96,11 +93,11 @@ void main() {
       // Counter habit goal exceeded
       final exceededRecord = counterRecord.copyWith(currentValue: 120);
       expect(exceededRecord.isGoalMet, true);
-      expect(exceededRecord.completionPercentage, 100.0); // Clamped to 100
+      expect(exceededRecord.completionPercentage, 100.0);
     });
   });
 
-  group('Quran Reading Progress Tests', () {
+  group('Quran Reading Progress and Ayah Model Tests', () {
     test('QuranProgress completion percentage calculates properly', () {
       final quran = QuranProgress(
         id: 'q-1',
@@ -115,6 +112,57 @@ void main() {
 
       final completed = quran.copyWith(pagesRead: 25);
       expect(completed.completionPercentage, 100.0);
+    });
+
+    test('AyahModel cleans Basmala prefix for Surahs 2-114 and keeps for Surah 1', () {
+      const basmala = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ';
+
+      // Surah 1 Al-Fatiha
+      final fatihaAyah1 = AyahModel(
+        number: 1,
+        text: basmala,
+        numberInSurah: 1,
+        juz: 1,
+        manzil: 1,
+        page: 1,
+        ruku: 1,
+        hizbQuarter: 1,
+        sajda: false,
+      );
+      expect(fatihaAyah1.getUthmaniTextForSurah(1), basmala);
+
+      // Surah 2 Al-Baqarah
+      final baqarahAyah1 = AyahModel(
+        number: 8,
+        text: '$basmala الٓمٓ',
+        numberInSurah: 1,
+        juz: 1,
+        manzil: 1,
+        page: 2,
+        ruku: 1,
+        hizbQuarter: 1,
+        sajda: false,
+      );
+      expect(baqarahAyah1.getUthmaniTextForSurah(2), 'الٓمٓ');
+    });
+  });
+
+  group('Authentic Azkar Dataset Validation Tests', () {
+    test('Contains all authentic items specified in user specification', () {
+      expect(AuthenticAzkarData.sabah.length, 31, reason: 'Morning Azkar count must be 31');
+      expect(AuthenticAzkarData.masaa.length, 30, reason: 'Evening Azkar count must be 30');
+      expect(AuthenticAzkarData.tawfeeq.length, 21, reason: 'Tawfeeq Azkar count must be 21');
+      expect(AuthenticAzkarData.tasbeehOptions.length, 6, reason: 'Tasbeeh options count must be 6');
+
+      // Verify Ayat Al-Kursi in Sabah
+      final ayatAlKursi = AuthenticAzkarData.sabah.first;
+      expect(ayatAlKursi['source'], contains('آية الكرسى'));
+      expect(ayatAlKursi['count'], 1);
+
+      // Verify Al-Ikhlas repetitions in Sabah
+      final ikhlas = AuthenticAzkarData.sabah[1];
+      expect(ikhlas['source'], contains('سورة الإخلاص'));
+      expect(ikhlas['count'], 3);
     });
   });
 

@@ -99,6 +99,27 @@ final dailyProgressProvider = Provider.autoDispose<DailyProgressSummary>((ref) {
   );
 });
 
+// Consecutive Days Streak Provider (matching screenshot 3)
+final consecutiveDaysStreakProvider = FutureProvider.autoDispose<int>((ref) async {
+  final prayerRepo = ref.watch(prayerRepositoryProvider);
+  final now = DateTime.now();
+  final today = AppDateUtils.getDateOnly(now);
+
+  int streak = 0;
+  for (int i = 0; i < 365; i++) {
+    final d = today.subtract(Duration(days: i));
+    final prayers = await prayerRepo.getPrayersByDate(d);
+    final hasPrayed = prayers.any((p) => p.state == PrayerState.onTime || p.state == PrayerState.late_);
+    if (hasPrayed) {
+      streak++;
+    } else {
+      if (i == 0) continue;
+      break;
+    }
+  }
+  return streak;
+});
+
 // Action Handlers
 class HomeActions {
   final Ref _ref;

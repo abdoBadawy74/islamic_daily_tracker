@@ -58,6 +58,7 @@ class AppConstants {
   static const List<String> azkarCategories = [
     'أذكار الصباح',
     'أذكار المساء',
+    'أدعية التوفيق والتيسير',
     'أذكار النوم',
     'أذكار الاستيقاظ',
     'أذكار بعد الصلاة',
@@ -66,5 +67,5 @@ class AppConstants {
 
   // Database
   static const String dbName = 'islamic_tracker.db';
-  static const int dbVersion = 1;
+  static const int dbVersion = 2;
 }

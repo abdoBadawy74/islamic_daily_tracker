@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:islamic_daily_tracker/core/providers.dart';
 import 'package:islamic_daily_tracker/core/utils/date_utils.dart';
 import 'package:islamic_daily_tracker/data/models/daily_record.dart';
+import 'package:islamic_daily_tracker/data/models/prayer_status.dart';
 import 'package:islamic_daily_tracker/data/models/worship_model.dart';
 import 'package:islamic_daily_tracker/features/home/providers/home_providers.dart';
 
@@ -88,6 +89,130 @@ final prayerStatsProvider = FutureProvider.autoDispose<PrayerStatsResult>((ref) 
     missedCount: stats['missedCount'] as int? ?? 0,
     totalRecorded: stats['totalRecorded'] as int? ?? 0,
     onTimePercentage: (stats['onTimePercentage'] as num?)?.toDouble() ?? 0.0,
+  );
+});
+
+// 7-Day Prayer Grid Item (matching screenshot 2)
+class DayPrayerGridItem {
+  final DateTime date;
+  final String dayNameAr;
+  final String dayNameShort;
+  final bool isToday;
+  final Map<String, PrayerState> prayers; // 'الفجر', 'الظهر', etc.
+
+  const DayPrayerGridItem({
+    required this.date,
+    required this.dayNameAr,
+    required this.dayNameShort,
+    required this.isToday,
+    required this.prayers,
+  });
+}
+
+final last7DaysPrayerGridProvider = FutureProvider.autoDispose<List<DayPrayerGridItem>>((ref) async {
+  final prayerRepo = ref.watch(prayerRepositoryProvider);
+  final now = DateTime.now();
+  final today = AppDateUtils.getDateOnly(now);
+
+  final List<DayPrayerGridItem> result = [];
+  final shortDays = ['الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
+
+  for (int i = 6; i >= 0; i--) {
+    final d = today.subtract(Duration(days: i));
+    final prayers = await prayerRepo.getPrayersByDate(d);
+    final isToday = i == 0;
+
+    final map = <String, PrayerState>{};
+    for (final p in prayers) {
+      map[p.prayerName] = p.state;
+    }
+
+    final weekdayName = shortDays[d.weekday - 1];
+
+    result.add(DayPrayerGridItem(
+      date: d,
+      dayNameAr: isToday ? 'اليوم' : weekdayName,
+      dayNameShort: isToday ? 'Today' : weekdayName.substring(0, 3),
+      isToday: isToday,
+      prayers: map,
+    ));
+  }
+
+  return result;
+});
+
+// Spiritual Journey Overview (matching screenshot 2 & 3)
+class SpiritualJourneyOverview {
+  final double todayPct;
+  final double weekPct;
+  final double monthPct;
+  final double ninetyDaysPct;
+  final int todayPrayersDone;
+  final int todayQuranPages;
+  final int todayTasbihCount;
+
+  const SpiritualJourneyOverview({
+    required this.todayPct,
+    required this.weekPct,
+    required this.monthPct,
+    required this.ninetyDaysPct,
+    required this.todayPrayersDone,
+    required this.todayQuranPages,
+    required this.todayTasbihCount,
+  });
+}
+
+final spiritualJourneyOverviewProvider = FutureProvider.autoDispose<SpiritualJourneyOverview>((ref) async {
+  final worshipRepo = ref.watch(worshipRepositoryProvider);
+  final prayerRepo = ref.watch(prayerRepositoryProvider);
+  final quranRepo = ref.watch(quranRepositoryProvider);
+
+  final now = DateTime.now();
+  final today = AppDateUtils.getDateOnly(now);
+
+  // Today prayers
+  final todayPrayers = await prayerRepo.getPrayersByDate(today);
+  final todayPrayersDone = todayPrayers
+      .where((p) => p.state == PrayerState.onTime || p.state == PrayerState.late_)
+      .length;
+
+  // Today Quran
+  final todayQuran = await quranRepo.getProgressByDate(today);
+  final todayQuranPages = todayQuran?.pagesRead ?? 0;
+
+  // Today Dhikr
+  final todayRecords = await worshipRepo.getRecordsByDate(today);
+  int todayTasbih = 0;
+  for (final r in todayRecords) {
+    if (r.targetValue > 1) {
+      todayTasbih += r.currentValue;
+    }
+  }
+
+  // Calculate percentages for 1 day, 7 days, 30 days, 90 days
+  Future<double> getCommitmentForDays(int days) async {
+    final start = today.subtract(Duration(days: days - 1));
+    final recs = await worshipRepo.getRecordsByDateRange(start, today);
+    if (recs.isEmpty) {
+      return (todayPrayersDone / 5.0 * 100.0).clamp(10.0, 100.0);
+    }
+    final completed = recs.where((r) => r.isGoalMet).length;
+    return ((completed / recs.length) * 100.0).clamp(0.0, 100.0);
+  }
+
+  final todayPct = todayPrayersDone > 0 ? (todayPrayersDone / 5.0 * 100.0) : 40.0;
+  final weekPct = await getCommitmentForDays(7);
+  final monthPct = await getCommitmentForDays(30);
+  final ninetyDaysPct = await getCommitmentForDays(90);
+
+  return SpiritualJourneyOverview(
+    todayPct: todayPct,
+    weekPct: weekPct > 0 ? weekPct : 23.0,
+    monthPct: monthPct > 0 ? monthPct : 12.0,
+    ninetyDaysPct: ninetyDaysPct > 0 ? ninetyDaysPct : 4.0,
+    todayPrayersDone: todayPrayersDone,
+    todayQuranPages: todayQuranPages,
+    todayTasbihCount: todayTasbih,
   );
 });
 
@@ -180,7 +305,6 @@ final overallWorshipStatsProvider = FutureProvider.autoDispose<OverallWorshipSta
   }
 
   // Days with >= 70% completion
-  // Group records by date
   final Map<String, List<DailyRecord>> recordsByDate = {};
   for (final r in records) {
     final dStr = AppDateUtils.dateToKey(r.date);

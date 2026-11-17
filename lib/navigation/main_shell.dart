@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:islamic_daily_tracker/core/theme/app_colors.dart';
 import 'package:islamic_daily_tracker/features/azkar/presentation/screens/azkar_screen.dart';
 import 'package:islamic_daily_tracker/features/home/presentation/screens/home_screen.dart';
@@ -6,17 +7,12 @@ import 'package:islamic_daily_tracker/features/quran/presentation/screens/quran_
 import 'package:islamic_daily_tracker/features/statistics/presentation/screens/statistics_screen.dart';
 import 'package:islamic_daily_tracker/features/worship/presentation/screens/worship_screen.dart';
 
-class MainShell extends StatefulWidget {
+final bottomNavIndexProvider = StateProvider<int>((ref) => 0);
+
+class MainShell extends ConsumerWidget {
   const MainShell({super.key});
 
-  @override
-  State<MainShell> createState() => _MainShellState();
-}
-
-class _MainShellState extends State<MainShell> {
-  int _currentIndex = 0;
-
-  final List<Widget> _screens = const [
+  static const List<Widget> _screens = [
     HomeScreen(),
     WorshipScreen(),
     QuranScreen(),
@@ -25,10 +21,12 @@ class _MainShellState extends State<MainShell> {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentIndex = ref.watch(bottomNavIndexProvider);
+
     return Scaffold(
       body: IndexedStack(
-        index: _currentIndex,
+        index: currentIndex,
         children: _screens,
       ),
       bottomNavigationBar: Container(
@@ -43,8 +41,8 @@ class _MainShellState extends State<MainShell> {
           ],
         ),
         child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
+          currentIndex: currentIndex,
+          onTap: (index) => ref.read(bottomNavIndexProvider.notifier).state = index,
           items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.home_outlined),
@@ -62,8 +60,8 @@ class _MainShellState extends State<MainShell> {
               label: 'القرآن',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.favorite_border_rounded),
-              activeIcon: Icon(Icons.favorite_rounded),
+              icon: Icon(Icons.auto_stories_outlined),
+              activeIcon: Icon(Icons.auto_stories_rounded),
               label: 'الأذكار',
             ),
             BottomNavigationBarItem(
