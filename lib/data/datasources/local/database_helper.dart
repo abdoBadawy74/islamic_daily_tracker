@@ -133,6 +133,9 @@ class DatabaseHelper {
       await _reseedWorships(db);
       await _reseedAzkar(db);
     }
+    if (oldVersion < 4) {
+      await _reseedWorships(db);
+    }
   }
 
   Future<void> _onOpen(Database db) async {
@@ -151,9 +154,9 @@ class DatabaseHelper {
       await _reseedAzkar(db);
     }
 
-    // Check if worships need re-seeding (e.g. old names or prayer group boolean)
+    // Check if worships need re-seeding (e.g. Nawafil not counter 12, missing Witr, or old order)
     final needsWorshipReseed = Sqflite.firstIntValue(
-      await db.rawQuery("SELECT COUNT(*) FROM worships WHERE name = 'درس علمي' OR name = 'درس تفسير وتدبر' OR (name = 'صلاة الجماعة' AND type = 'boolean')"),
+      await db.rawQuery("SELECT COUNT(*) FROM worships WHERE (name = 'النوافل' AND type = 'boolean') OR (SELECT COUNT(*) FROM worships WHERE name = 'صلاة الوتر') = 0"),
     ) ?? 0;
     if (needsWorshipReseed > 0) {
       await _reseedWorships(db);
