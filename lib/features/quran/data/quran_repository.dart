@@ -85,12 +85,25 @@ class SurahFullModel {
   }
 }
 
+class MushafAyahItem {
+  final AyahModel ayah;
+  final int surahNumber;
+  final String surahName;
+
+  const MushafAyahItem({
+    required this.ayah,
+    required this.surahNumber,
+    required this.surahName,
+  });
+}
+
 class QuranRepository {
   static final QuranRepository _instance = QuranRepository._internal();
   factory QuranRepository() => _instance;
   QuranRepository._internal();
 
   Map<int, SurahFullModel>? _surahsCache;
+  Map<int, List<MushafAyahItem>>? _pagesMap;
   bool _isLoading = false;
 
   Future<void> _loadQuranData() async {
@@ -109,22 +122,36 @@ class QuranRepository {
       final surahsList = (decoded['data']['surahs'] as List<dynamic>);
 
       final cache = <int, SurahFullModel>{};
+      final pages = <int, List<MushafAyahItem>>{};
+
       for (final s in surahsList) {
         final surahMap = s as Map<String, dynamic>;
         final num = surahMap['number'] as int;
+        final name = surahMap['name'] as String;
         final ayahs = (surahMap['ayahs'] as List<dynamic>)
             .map((a) => AyahModel.fromJson(a as Map<String, dynamic>))
             .toList();
 
         cache[num] = SurahFullModel(
           number: num,
-          nameArabic: surahMap['name'] as String,
+          nameArabic: name,
           englishName: surahMap['englishName'] as String,
           revelationType: surahMap['revelationType'] as String,
           ayahs: ayahs,
         );
+
+        for (final ayah in ayahs) {
+          pages.putIfAbsent(ayah.page, () => []).add(
+            MushafAyahItem(
+              ayah: ayah,
+              surahNumber: num,
+              surahName: name,
+            ),
+          );
+        }
       }
       _surahsCache = cache;
+      _pagesMap = pages;
     } finally {
       _isLoading = false;
     }
@@ -142,5 +169,15 @@ class QuranRepository {
   Future<List<AyahModel>> getAyahs(int surahNumber) async {
     final surah = await getSurah(surahNumber);
     return surah.ayahs;
+  }
+
+  Future<Map<int, List<MushafAyahItem>>> getAllPages() async {
+    await _loadQuranData();
+    return _pagesMap ?? {};
+  }
+
+  Future<List<MushafAyahItem>> getPageAyahs(int pageNumber) async {
+    final pages = await getAllPages();
+    return pages[pageNumber] ?? [];
   }
 }

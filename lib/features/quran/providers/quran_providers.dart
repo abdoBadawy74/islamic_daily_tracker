@@ -12,6 +12,11 @@ final quranTextRepositoryProvider = Provider<QuranRepository>((ref) {
   return QuranRepository();
 });
 
+final allQuranPagesProvider = FutureProvider<Map<int, List<MushafAyahItem>>>((ref) async {
+  final repo = ref.watch(quranTextRepositoryProvider);
+  return repo.getAllPages();
+});
+
 final surahDetailProvider =
     FutureProvider.family.autoDispose<SurahFullModel, int>((ref, surahNumber) async {
   final repo = ref.watch(quranTextRepositoryProvider);
