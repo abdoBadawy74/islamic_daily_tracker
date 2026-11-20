@@ -209,7 +209,7 @@ class _AddEditWorshipDialogState extends ConsumerState<AddEditWorshipDialog> {
       case WorshipType.counter:
         return 'الهدف اليومي للتكرار *';
       case WorshipType.quantity:
-        return 'الكمية المستهدفة (صفحات/أجزاء) *';
+        return 'الكمية المستهدفة (أرباع/أجزاء) *';
       case WorshipType.duration:
         return 'المدة المستهدفة بالدقائق *';
       case WorshipType.boolean_:
@@ -222,7 +222,7 @@ class _AddEditWorshipDialogState extends ConsumerState<AddEditWorshipDialog> {
       case WorshipType.counter:
         return 'مرة';
       case WorshipType.quantity:
-        return 'صفحة';
+        return 'ربع';
       case WorshipType.duration:
         return 'دقيقة';
       case WorshipType.boolean_:

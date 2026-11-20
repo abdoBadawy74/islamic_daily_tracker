@@ -68,7 +68,7 @@ class QuranHistoryScreen extends ConsumerWidget {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  '${rec.pagesRead} صفحة',
+                                  '${rec.pagesRead} ربع',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,

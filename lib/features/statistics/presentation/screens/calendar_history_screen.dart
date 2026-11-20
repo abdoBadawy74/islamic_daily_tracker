@@ -209,7 +209,7 @@ class CalendarHistoryScreen extends ConsumerWidget {
                           const Icon(Icons.menu_book, color: AppColors.primary, size: 20),
                           const SizedBox(width: 8),
                           Text(
-                            'تمت قراءة ${quran.pagesRead} صفحة من أصل ${quran.dailyTarget} مستهدفة',
+                            'تمت قراءة ${quran.pagesRead} ربع من أصل ${quran.dailyTarget} مستهدفة',
                             style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
                           ),
                           if (quran.lastSurahName != null) ...[

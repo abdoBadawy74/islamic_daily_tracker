@@ -53,8 +53,8 @@ class WorshipStatsCard extends StatelessWidget {
                 children: [
                   _buildMetricBox(
                     context,
-                    title: 'صفحات القرآن',
-                    value: '${stats.totalQuranPages} صفحة',
+                    title: 'أرباع القرآن',
+                    value: '${stats.totalQuranPages} ربع',
                     icon: Icons.menu_book_rounded,
                     color: AppColors.primary,
                   ),

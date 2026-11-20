@@ -80,7 +80,7 @@ class QuranProgressCard extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '${progress.pagesRead} من ${progress.dailyTarget} صفحة',
+                    '${progress.pagesRead} من ${progress.dailyTarget} ربع',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -122,7 +122,7 @@ class QuranProgressCard extends ConsumerWidget {
                       const Icon(Icons.auto_stories_outlined, size: 16, color: AppColors.textLight),
                       const SizedBox(width: 4),
                       Text(
-                        'إجمالي ما قرأت: $totalPages صفحة',
+                        'إجمالي ما قرأت: $totalPages ربع',
                         style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                       ),
                     ],

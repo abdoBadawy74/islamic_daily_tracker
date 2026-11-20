@@ -50,17 +50,17 @@ class _LogReadingDialogState extends ConsumerState<LogReadingDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Pages Read Input
+              // Quarters Read Input
               TextFormField(
                 controller: _pagesController,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: 'عدد الصفحات المقروءة اليوم *',
+                  labelText: 'عدد الأرباع المقروءة اليوم *',
                   prefixIcon: Icon(Icons.file_copy_outlined),
-                  suffixText: 'صفحة',
+                  suffixText: 'ربع',
                 ),
                 validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'يرجى إدخال عدد الصفحات';
+                  if (val == null || val.trim().isEmpty) return 'يرجى إدخال عدد الأرباع';
                   final n = int.tryParse(val);
                   if (n == null || n <= 0) return 'يرجى إدخال رقم صحيح أكبر من 0';
                   return null;
@@ -145,7 +145,7 @@ class _LogReadingDialogState extends ConsumerState<LogReadingDialog> {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('بارك الله فيك، تم تسجيل قراءة $pages صفحة من سورة ${surah.nameArabic}'),
+          content: Text('بارك الله فيك، تم تسجيل قراءة $pages ربع من سورة ${surah.nameArabic}'),
           backgroundColor: AppColors.primary,
         ),
       );

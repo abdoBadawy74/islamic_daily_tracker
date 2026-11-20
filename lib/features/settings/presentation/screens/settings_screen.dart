@@ -156,7 +156,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
                           labelText: 'ورد القرآن المستهدف يوميًا',
-                          suffixText: 'صفحة',
+                          suffixText: 'ربع',
                           prefixIcon: Icon(Icons.menu_book_outlined),
                         ),
                       ),

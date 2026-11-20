@@ -129,20 +129,40 @@ class DatabaseHelper {
     if (oldVersion < 2) {
       await _reseedAzkar(db);
     }
+    if (oldVersion < 3) {
+      await _reseedWorships(db);
+      await _reseedAzkar(db);
+    }
   }
 
   Future<void> _onOpen(Database db) async {
     final count = Sqflite.firstIntValue(
       await db.rawQuery('SELECT COUNT(*) FROM azkar_items'),
     ) ?? 0;
-    // Check if azkar contain old glued text
+    // Check if azkar contain old glued text or tawfeeq category
     final oldTextSample = await db.rawQuery(
       "SELECT text FROM azkar_items WHERE text LIKE '%الرَّجِيمِاللّهُ%' OR text LIKE '%الرَّحِيمقُلْ%' LIMIT 1",
     );
-    // If the database has fewer than 50 items or contains old unspaced text, re-seed with all authentic azkar
-    if (count < 50 || oldTextSample.isNotEmpty) {
+    final hasTawfeeq = Sqflite.firstIntValue(
+      await db.rawQuery("SELECT COUNT(*) FROM azkar_categories WHERE name = 'أدعية التوفيق والتيسير'"),
+    ) ?? 0;
+    // If the database has fewer than 50 items or contains old unspaced text or has tawfeeq, re-seed with authentic azkar
+    if (count < 50 || oldTextSample.isNotEmpty || hasTawfeeq > 0) {
       await _reseedAzkar(db);
     }
+
+    // Check if worships need re-seeding (e.g. old names or prayer group boolean)
+    final needsWorshipReseed = Sqflite.firstIntValue(
+      await db.rawQuery("SELECT COUNT(*) FROM worships WHERE name = 'درس علمي' OR name = 'درس تفسير وتدبر' OR (name = 'صلاة الجماعة' AND type = 'boolean')"),
+    ) ?? 0;
+    if (needsWorshipReseed > 0) {
+      await _reseedWorships(db);
+    }
+  }
+
+  Future<void> _reseedWorships(Database db) async {
+    await db.delete('worships');
+    await _seedWorships(db);
   }
 
   Future<void> _reseedAzkar(Database db) async {
@@ -216,25 +236,6 @@ class DatabaseHelper {
       await db.insert('azkar_items', {
         'id': _uuid.v4(),
         'category_id': eveningId,
-        'text': item['text'],
-        'repetitions': item['count'] ?? 1,
-        'current_count': 0,
-        'source': item['source'],
-        'virtue': item['virtue'],
-      });
-    }
-
-    // 3. Tawfeeq & Study Azkar (21 Authentic Items)
-    final tawfeeqId = _uuid.v4();
-    await db.insert('azkar_categories', {
-      'id': tawfeeqId,
-      'name': 'أدعية التوفيق والتيسير',
-      'icon_name': 'knowledge',
-    });
-    for (final item in AuthenticAzkarData.tawfeeq) {
-      await db.insert('azkar_items', {
-        'id': _uuid.v4(),
-        'category_id': tawfeeqId,
         'text': item['text'],
         'repetitions': item['count'] ?? 1,
         'current_count': 0,
